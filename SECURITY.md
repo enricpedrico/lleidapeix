@@ -1,6 +1,6 @@
 # Seguridad de LleidaPeix
 
-Revisión: 28 de octubre de 2026. Cambios preparados en el código y el repositorio privado; no desplegados en producción. La administración protegida es compatible con un repositorio público.
+Revisión y despliegue: 28 de octubre de 2026. Correcciones instaladas en producción desde el commit `a191706`, con copias privadas previas y configuración conservada. Repositorio aún privado. La administración protegida es compatible con un repositorio público.
 
 ## Controles y correcciones
 
@@ -36,13 +36,13 @@ Se considera no aplicable al mecanismo descrito en ese aviso en esta versión co
 
 ## Antes de hacer público y desplegar
 
-1. Respaldar SQLite y conservar `.env`. Desplegar estos cambios, comprobar juego y análisis por HTTPS y, después, cambiar la visibilidad del repositorio. No se ha actualizado producción durante esta revisión.
+1. En futuras actualizaciones, respaldar SQLite y conservar `.env`. El despliegue del 28 de octubre ya está verificado por HTTPS: creación de partida, jugadas y análisis WebSocket completo. La visibilidad del repositorio aún no se ha cambiado.
 2. Reconstruir con los lockfiles y las versiones documentadas; conservar las restricciones de Compose, el proxy HTTPS y los permisos del volumen `data` para el usuario UID/GID 1000.
 3. Mantener `ADMIN_TOKEN` vacío si no se usa la administración o sustituirlo por un secreto aleatorio. No publicar `.env`, URLs privadas de partidas, bases de datos, respaldos ni tokens.
 4. Revisar periódicamente dependencias y avisos, incluido el aviso transitivo clasificado manualmente.
 
 ## Alcance y límites
 
-Revisión de las rutas, serialización, motor accesible por red, persistencia, configuración, recursos y dependencias del código exportado. No cubre una auditoría completa de infraestructura, pruebas de penetración de producción ni fuzzing exhaustivo del motor. Los límites son globales y pueden rechazar también tráfico legítimo durante una saturación; se ha priorizado mantener acotado el trabajo. La imagen final completa de LleidaPeix no se ha construido en esta revisión: se han compilado y probado por separado backend e interfaz.
+Revisión de las rutas, serialización, motor accesible por red, persistencia, configuración, recursos y dependencias del código exportado. No cubre una auditoría completa de infraestructura, pruebas de penetración de producción ni fuzzing exhaustivo del motor. Los límites son globales y pueden rechazar también tráfico legítimo durante una saturación; se ha priorizado mantener acotado el trabajo. La revisión inicial compiló los componentes por separado. Para el despliegue posterior se construyó la imagen completa, pasaron 35 pruebas Rust en release y las pruebas de concurrencia y cancelación sobre la propia imagen, y se verificó juego y análisis por HTTPS tras instalarla.
 
 Para comunicar vulnerabilidades, usar un canal privado o la notificación privada de GitHub si se habilita. No publicar secretos en issues.

@@ -52,7 +52,7 @@ No se han incluido `.env`, tokens, contraseñas, sesiones, bases de datos, archi
 
 ## Seguridad
 
-Revisión del 28 de octubre de 2026: correcciones y pruebas en este repositorio privado; no se han desplegado en el servidor. Consulta [SECURITY.md](SECURITY.md) para los controles, los límites conocidos y la preparación del despliegue. Tener administración protegida no exige que el código sea privado.
+Correcciones revisadas y desplegadas en el servidor el 28 de octubre de 2026, con copias previas, comprobación de salud y pruebas de juego por HTTPS. El repositorio sigue privado. Consulta [SECURITY.md](SECURITY.md) para los controles, los límites conocidos y la preparación del despliegue. Tener administración protegida no exige que el código sea privado.
 
 ## Documentación original
 
