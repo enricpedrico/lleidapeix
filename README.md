@@ -8,7 +8,7 @@ Motor de análisis y entrenamiento de botifarra occidental.
 
 ## Estado del repositorio
 
-Repositorio **privado** con código y recursos necesarios para reconstruir la aplicación. La base se ha contrastado con los archivos del servidor el 28 de octubre de 2026. No incluye el historial de despliegues ni datos persistentes.
+Repositorio **público** con código y recursos necesarios para reconstruir la aplicación. La base se ha contrastado con los archivos del servidor el 28 de octubre de 2026. No incluye el historial de despliegues ni datos persistentes.
 
 ## Desarrollo
 
@@ -52,7 +52,7 @@ No se han incluido `.env`, tokens, contraseñas, sesiones, bases de datos, archi
 
 ## Seguridad
 
-Correcciones revisadas y desplegadas en el servidor el 28 de octubre de 2026, con copias previas, comprobación de salud y pruebas de juego por HTTPS. El repositorio sigue privado. Consulta [SECURITY.md](SECURITY.md) para los controles, los límites conocidos y la preparación del despliegue. Tener administración protegida no exige que el código sea privado.
+Correcciones revisadas y desplegadas en el servidor el 28 de octubre de 2026, con copias previas, comprobación de salud y pruebas de juego por HTTPS. El repositorio es público; la configuración privada y los datos se conservan fuera de Git. Consulta [SECURITY.md](SECURITY.md) para los controles, los límites conocidos y la preparación del despliegue. Tener administración protegida no exige que el código sea privado.
 
 ## Documentación original
 

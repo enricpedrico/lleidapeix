@@ -1,6 +1,6 @@
 # Seguridad de LleidaPeix
 
-Revisión y despliegue: 28 de octubre de 2026. Correcciones instaladas en producción desde el commit `a191706`, con copias privadas previas y configuración conservada. Repositorio aún privado. La administración protegida es compatible con un repositorio público.
+Revisión y despliegue: 28 de octubre de 2026. Correcciones instaladas en producción desde el commit `a191706`, con copias privadas previas y configuración conservada. Repositorio público; configuración privada y datos fuera de Git. La administración protegida es compatible con un repositorio público.
 
 ## Controles y correcciones
 
@@ -36,7 +36,7 @@ Se considera no aplicable al mecanismo descrito en ese aviso en esta versión co
 
 ## Antes de hacer público y desplegar
 
-1. En futuras actualizaciones, respaldar SQLite y conservar `.env`. El despliegue del 28 de octubre ya está verificado por HTTPS: creación de partida, jugadas y análisis WebSocket completo. La visibilidad del repositorio aún no se ha cambiado.
+1. En futuras actualizaciones, respaldar SQLite y conservar `.env`. El despliegue del 28 de octubre ya está verificado por HTTPS: creación de partida, jugadas y análisis WebSocket completo. El repositorio se ha hecho público tras verificar el despliegue.
 2. Reconstruir con los lockfiles y las versiones documentadas; conservar las restricciones de Compose, el proxy HTTPS y los permisos del volumen `data` para el usuario UID/GID 1000.
 3. Mantener `ADMIN_TOKEN` vacío si no se usa la administración o sustituirlo por un secreto aleatorio. No publicar `.env`, URLs privadas de partidas, bases de datos, respaldos ni tokens.
 4. Revisar periódicamente dependencias y avisos, incluido el aviso transitivo clasificado manualmente.
