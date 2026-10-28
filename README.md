@@ -8,11 +8,11 @@ Motor de análisis y entrenamiento de botifarra occidental.
 
 ## Estado del repositorio
 
-Repositorio **privado con código y recursos necesarios para reconstruir la aplicación. La base se ha contrastado con los archivos del servidor el 28 de octubre de 2026. No incluye el historial de despliegues ni datos persistentes.
+Repositorio **privado** con código y recursos necesarios para reconstruir la aplicación. La base se ha contrastado con los archivos del servidor el 28 de octubre de 2026. No incluye el historial de despliegues ni datos persistentes.
 
 ## Desarrollo
 
-Node.js 20.20 o superior y npm; las versiones exactas se fijan en `package-lock.json`. Además, Rust y Cargo para el backend.
+Node.js 24 LTS y npm; las versiones exactas se fijan en `package-lock.json`. Además, Rust 1.86 o superior y Cargo para el backend; el contenedor usa Rust 1.86.
 
 ```bash
 npm ci
@@ -32,14 +32,16 @@ Copia `.env.example` a `.env` y sustituye los valores de ejemplo. Nunca subas `.
 
 ## Estructura
 
-`src/`: interfaz de usuario; `public/`: recursos estáticos; `tests/`: pruebas.
+`src/`: API y motor en Rust; `web/src/`: interfaz; `web/public/`: recursos estáticos; `tests/`: pruebas de integración.
 
 ## Verificación
 
 ```bash
 npm test
 npm run build
-cargo test
+cargo test --locked
+cargo build --locked
+npm run test:security
 ```
 
 ## Despliegue y datos
@@ -47,6 +49,10 @@ cargo test
 La configuración Compose del repositorio es la referencia. Prepara las variables y el directorio de datos, después ejecuta `docker compose up -d --build`. Los puertos de la aplicación deben permanecer ligados a loopback, detrás del proxy HTTPS.
 
 No se han incluido `.env`, tokens, contraseñas, sesiones, bases de datos, archivos subidos, biblioteca multimedia, cachés o copias de seguridad. Las copias de datos se gestionan aparte; subir el código no sustituye un respaldo. Antes de actualizar una instalación conserva sus datos y configuración. No uses `docker compose down -v` para una actualización normal.
+
+## Seguridad
+
+Revisión del 28 de octubre de 2026: correcciones y pruebas en este repositorio privado; no se han desplegado en el servidor. Consulta [SECURITY.md](SECURITY.md) para los controles, los límites conocidos y la preparación del despliegue. Tener administración protegida no exige que el código sea privado.
 
 ## Documentación original
 

@@ -13,7 +13,7 @@ use axum::{
         ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade},
         Path, Query, State,
     },
-    http::{header, HeaderMap, Request, StatusCode},
+    http::{header, HeaderMap, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -21,7 +21,7 @@ use axum::{
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tower_http::{
     limit::RequestBodyLimitLayer,
     services::{ServeDir, ServeFile},
@@ -30,6 +30,7 @@ use tower_http::{
 use uuid::Uuid;
 
 use crate::{
+    security::{Limits, MAX_CACHED_GAMES, MAX_STORED_GAMES, valid_admin_token},
     database::Database,
     engine::{choose_move, has_compatible_world, Analyzer, InformationSet},
     game::GameError,
@@ -48,6 +49,7 @@ pub struct AppState {
     pub analysis_waiters: Arc<AtomicUsize>,
     pub started: Instant,
     pub admin_token: Arc<String>,
+    pub limits: Arc<Limits>,
 }
 
 #[derive(Debug, Serialize)]
@@ -171,18 +173,55 @@ pub fn router(state: AppState) -> Router {
                 .not_found_service(ServeFile::new("web-dist/index.html")),
         )
         .layer(RequestBodyLimitLayer::new(64 * 1024))
-        .layer(middleware::from_fn(security_headers))
+        .layer(middleware::from_fn_with_state(state.clone(), security_headers))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
-async fn security_headers(request: Request<Body>, next: Next) -> Response {
-    let mut response = next.run(request).await;
+async fn security_headers(State(state): State<AppState>, request: Request<Body>, next: Next) -> Response {
+    let path = request.uri().path();
+    let api = path.starts_with("/api/");
+    let mut response = if api && !allowed_origin(request.headers()) {
+        api_error(StatusCode::FORBIDDEN, "Origen no permès", None).into_response()
+    } else if api && path != "/api/health" && !state.limits.allow(request.method() == Method::POST && path == "/api/games") {
+        api_error(StatusCode::TOO_MANY_REQUESTS, "Massa peticions; torna-ho a provar més tard", None).into_response()
+    } else {
+        let guarded = api && path != "/api/health";
+        let slot = if guarded { state.limits.request_slots.clone().try_acquire_owned().ok() } else { None };
+        if guarded && slot.is_none() {
+            api_error(StatusCode::TOO_MANY_REQUESTS, "Servidor ocupat; torna-ho a provar més tard", None).into_response()
+        } else {
+            let _slot = slot;
+            next.run(request).await
+        }
+    };
     let headers = response.headers_mut();
     headers.insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse().unwrap());
     headers.insert(header::X_FRAME_OPTIONS, "DENY".parse().unwrap());
     headers.insert(header::REFERRER_POLICY, "no-referrer".parse().unwrap());
+    if api { headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap()); }
     response
+}
+
+fn allowed_origin(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else { return true; };
+    let Ok(origin) = origin.to_str() else { return false; };
+    let Ok(uri) = origin.parse::<Uri>() else { return false; };
+    if !matches!(uri.scheme_str(), Some("http" | "https")) || uri.path() != "/" || uri.query().is_some() {
+        return false;
+    }
+    let Some(authority) = uri.authority() else { return false; };
+    headers.get(header::HOST).and_then(|v| v.to_str().ok())
+        .is_some_and(|host| authority.as_str().eq_ignore_ascii_case(host))
+}
+
+pub(crate) fn cache_game(games: &mut HashMap<String, Game>, game: Game) {
+    if !games.contains_key(&game.id) && games.len() >= MAX_CACHED_GAMES {
+        if let Some(oldest) = games.iter().min_by_key(|(_, game)| game.updated_at).map(|(id, _)| id.clone()) {
+            games.remove(&oldest);
+        }
+    }
+    games.insert(game.id.clone(), game);
 }
 
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
@@ -214,8 +253,10 @@ async fn create_game(
     };
     auto_progress(&mut game);
     let public = game.public_state();
-    state.database.save_game(&game).map_err(internal_error)?;
-    state.games.write().insert(id, game);
+    if !state.database.create_game_with_limit(&game, MAX_STORED_GAMES).map_err(internal_error)? {
+        return Err(api_error(StatusCode::SERVICE_UNAVAILABLE, "Capacitat de partides assolida; torna-ho a provar més tard", None));
+    }
+    cache_game(&mut state.games.write(), game);
     Ok((StatusCode::CREATED, Json(public)))
 }
 
@@ -326,7 +367,7 @@ where
     let mut games = state.games.write();
     if !games.contains_key(id) {
         if let Some(game) = state.database.load_game(id).map_err(internal_error)? {
-            games.insert(id.to_string(), game);
+            cache_game(&mut games, game);
         }
     }
     let game = games.get_mut(id).ok_or_else(not_found)?;
@@ -411,6 +452,8 @@ async fn analysis_socket(
     Path(id): Path<String>,
     Query(query): Query<AnalysisQuery>,
 ) -> ApiResult<impl IntoResponse> {
+    let admission = state.limits.analysis_admissions.clone().try_acquire_owned()
+        .map_err(|_| api_error(StatusCode::TOO_MANY_REQUESTS, "La cua del motor és plena", None))?;
     let game = load_game(&state, &id)?;
     if !game.public_state().can_analyze {
         return Err(api_error(
@@ -421,9 +464,16 @@ async fn analysis_socket(
     }
     let budget = query.budget_ms.unwrap_or(1500).clamp(150, 10_000);
     let analysis_id = Uuid::new_v4().simple().to_string();
-    Ok(ws.on_upgrade(move |socket| {
-        run_analysis_socket(socket, state, game, budget, analysis_id)
+    Ok(ws.max_message_size(1024).max_frame_size(1024).on_upgrade(move |socket| async move {
+        let _admission = admission;
+        run_analysis_socket(socket, state, game, budget, analysis_id).await;
     }))
+}
+
+struct AnalysisWaiter(Arc<AtomicUsize>);
+
+impl Drop for AnalysisWaiter {
+    fn drop(&mut self) { self.0.fetch_sub(1, Ordering::SeqCst); }
 }
 
 async fn run_analysis_socket(
@@ -433,47 +483,36 @@ async fn run_analysis_socket(
     budget_ms: u64,
     analysis_id: String,
 ) {
-    let mut sequence = 0u64;
-    if state.analysis_slots.available_permits() == 0 {
-        if state.analysis_waiters.fetch_add(1, Ordering::SeqCst) >= 3 {
-            state.analysis_waiters.fetch_sub(1, Ordering::SeqCst);
-            sequence += 1;
-            let busy = serde_json::json!({
-                "analysisId": analysis_id,
-                "sequence": sequence,
-                "status": "error",
-                "terminalReason": "busy",
-                "message": "La cua del motor és plena. Torna-ho a provar en uns instants."
-            });
-            let _ = socket.send(Message::Text(busy.to_string().into())).await;
-            let _ = socket
-                .send(Message::Close(Some(CloseFrame {
-                    code: close_code::AGAIN,
-                    reason: "analysis-busy".into(),
-                })))
-                .await;
-            return;
-        }
-        sequence += 1;
-        let queued = serde_json::json!({
-            "analysisId": analysis_id,
-            "sequence": sequence,
-            "status": "queued",
-            "message": "Motor ocupat; ets a la cua."
-        });
-        let _ = socket.send(Message::Text(queued.to_string().into())).await;
-        let permit = state.analysis_slots.clone().acquire_owned().await;
-        state.analysis_waiters.fetch_sub(1, Ordering::SeqCst);
-        let Ok(_permit) = permit else {
-            return;
-        };
-        run_analysis_with_permit(socket, game, budget_ms, analysis_id, sequence).await;
+    if let Ok(permit) = state.analysis_slots.clone().try_acquire_owned() {
+        run_analysis_with_permit(socket, game, budget_ms, analysis_id, 0, permit).await;
         return;
     }
-    let Ok(_permit) = state.analysis_slots.clone().acquire_owned().await else {
+    if state.analysis_waiters.fetch_add(1, Ordering::SeqCst) >= 3 {
+        state.analysis_waiters.fetch_sub(1, Ordering::SeqCst);
+        let busy = serde_json::json!({"analysisId": analysis_id, "sequence": 1,
+            "status": "error", "terminalReason": "busy", "message": "La cua del motor és plena."});
+        let _ = socket.send(Message::Text(busy.to_string().into())).await;
         return;
+    }
+    let waiter = AnalysisWaiter(state.analysis_waiters.clone());
+    let queued = serde_json::json!({"analysisId": analysis_id, "sequence": 1,
+        "status": "queued", "message": "Motor ocupat; ets a la cua."});
+    if socket.send(Message::Text(queued.to_string().into())).await.is_err() { return; }
+    let acquire = state.analysis_slots.clone().acquire_owned();
+    tokio::pin!(acquire);
+    let permit = loop {
+        tokio::select! {
+            permit = &mut acquire => break permit,
+            incoming = socket.recv() => match incoming {
+                Some(Ok(Message::Ping(_) | Message::Pong(_))) => {},
+                _ => return,
+            }
+        }
     };
-    run_analysis_with_permit(socket, game, budget_ms, analysis_id, sequence).await;
+    drop(waiter);
+    if let Ok(permit) = permit {
+        run_analysis_with_permit(socket, game, budget_ms, analysis_id, 1, permit).await;
+    }
 }
 
 async fn run_analysis_with_permit(
@@ -482,6 +521,7 @@ async fn run_analysis_with_permit(
     budget_ms: u64,
     analysis_id: String,
     mut sequence: u64,
+    mut permit: OwnedSemaphorePermit,
 ) {
     let Some(info) = InformationSet::from_game(&game, game.human_seat) else {
         let failure = serde_json::json!({
@@ -503,13 +543,22 @@ async fn run_analysis_with_permit(
     let mut analyzer = Analyzer::new(info);
     let start = Instant::now();
     loop {
-        let result = tokio::task::spawn_blocking(move || {
+        let mut work = tokio::task::spawn_blocking(move || {
             analyzer.step(180);
             let update = analyzer.update("analyzing");
-            (analyzer, update)
-        })
-        .await;
-        let Ok((returned, mut update)) = result else {
+            (analyzer, update, permit)
+        });
+        let result = loop {
+            tokio::select! {
+                result = &mut work => break result,
+                incoming = socket.recv() => match incoming {
+                    Some(Ok(Message::Ping(_) | Message::Pong(_))) => {},
+                    // The blocking task retains its permit until this batch exits.
+                    _ => return,
+                }
+            }
+        };
+        let Ok((returned, mut update, returned_permit)) = result else {
             sequence += 1;
             let failure = serde_json::json!({
                 "analysisId": analysis_id,
@@ -528,6 +577,7 @@ async fn run_analysis_with_permit(
             return;
         };
         analyzer = returned;
+        permit = returned_permit;
         let done = start.elapsed().as_millis() as u64 >= budget_ms;
         sequence += 1;
         update.analysis_id.clone_from(&analysis_id);
@@ -540,7 +590,7 @@ async fn run_analysis_with_permit(
         let Ok(json) = serde_json::to_string(&update) else {
             return;
         };
-        if socket.send(Message::Text(json.into())).await.is_err() {
+        if !matches!(tokio::time::timeout(std::time::Duration::from_secs(2), socket.send(Message::Text(json.into()))).await, Ok(Ok(()))) {
             return;
         }
         if done {
@@ -563,13 +613,6 @@ async fn analyze_position(
     let budget = request.budget_ms.unwrap_or(500).clamp(100, 3000);
     let mut info = build_position_information(&request)?;
     info.seed = request.seed.unwrap_or(73);
-    if !has_compatible_world(&info) {
-        return Err(api_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No existeix cap repartiment compatible amb aquesta mà i l’historial",
-            None,
-        ));
-    }
     let _permit = state
         .analysis_slots
         .clone()
@@ -582,13 +625,18 @@ async fn analyze_position(
             )
         })?;
     let mut update = tokio::task::spawn_blocking(move || {
+        // Retain the slot until the actual CPU task exits, even if its HTTP client disconnects.
+        let _permit = _permit;
+        if !has_compatible_world(&info) {
+            return Err(api_error(StatusCode::UNPROCESSABLE_ENTITY, "No existeix cap repartiment compatible amb aquesta mà i l’historial", None));
+        }
         let mut analyzer = Analyzer::new(info);
         let iterations = (budget as usize * 2).clamp(200, 6000);
         analyzer.step(iterations);
-        analyzer.update("complete")
+        Ok(analyzer.update("complete"))
     })
     .await
-    .map_err(internal_error)?;
+    .map_err(internal_error)??;
     update.analysis_id = Uuid::new_v4().simple().to_string();
     update.sequence = 1;
     update.terminal_reason = Some("completed".into());
@@ -736,7 +784,7 @@ async fn admin_status(
         .get("x-admin-token")
         .and_then(|value| value.to_str().ok())
         .unwrap_or("");
-    if state.admin_token.is_empty()
+    if !valid_admin_token(&state.admin_token)
         || !constant_time_eq(supplied.as_bytes(), state.admin_token.as_bytes())
     {
         return Err(api_error(
@@ -774,7 +822,7 @@ fn load_game(state: &AppState, id: &str) -> ApiResult<Game> {
         .load_game(id)
         .map_err(internal_error)?
         .ok_or_else(not_found)?;
-    state.games.write().insert(id.to_string(), game.clone());
+    cache_game(&mut state.games.write(), game.clone());
     Ok(game)
 }
 
@@ -823,6 +871,7 @@ mod persistence_tests {
             analysis_waiters: Arc::new(AtomicUsize::new(0)),
             started: Instant::now(),
             admin_token: Arc::new(String::new()),
+            limits: Arc::new(Limits::new()),
         };
         let connection = rusqlite::Connection::open(&path).unwrap();
         connection.execute_batch("CREATE TRIGGER reject_save BEFORE UPDATE ON games BEGIN SELECT RAISE(ABORT, 'simulated storage failure'); END;").unwrap();

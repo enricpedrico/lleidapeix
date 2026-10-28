@@ -4,6 +4,9 @@ mod engine;
 mod game;
 mod model;
 mod rules;
+mod security;
+#[cfg(test)]
+mod api_security_tests;
 #[cfg(test)]
 mod rules_audit;
 
@@ -56,9 +59,11 @@ async fn main() {
         analysis_waiters: Arc::new(AtomicUsize::new(0)),
         started: Instant::now(),
         admin_token: Arc::new(env::var("ADMIN_TOKEN").unwrap_or_default()),
+        limits: Arc::new(security::Limits::new()),
     };
     let app = api::router(state);
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}"))
+    let bind_address = env::var("BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1".into());
+    let listener = TcpListener::bind(format!("{bind_address}:{port}"))
         .await
         .expect("cannot bind HTTP listener");
     tracing::info!(port = %port, "LleidaPeix ready");

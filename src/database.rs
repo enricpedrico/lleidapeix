@@ -43,6 +43,17 @@ impl Database {
         Ok(())
     }
 
+    pub fn create_game_with_limit(&self, game: &Game, limit: u64) -> Result<bool, String> {
+        let json = serde_json::to_string(game).map_err(|error| error.to_string())?;
+        let connection = self.connection.lock();
+        let count: u64 = connection.query_row("SELECT COUNT(*) FROM games", [], |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+        if count >= limit { return Ok(false); }
+        connection.execute("INSERT INTO games (id, state_json, updated_at) VALUES (?1, ?2, ?3)", params![game.id, json, game.updated_at])
+            .map_err(|error| error.to_string())?;
+        Ok(true)
+    }
+
     pub fn load_game(&self, id: &str) -> Result<Option<Game>, String> {
         let json = self
             .connection
