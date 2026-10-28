@@ -1,0 +1,62 @@
+/* Visual adaptation of the CC BY-SA 3.0 deck credited at /cards/CREDITS.txt. */
+.playing-card {
+  padding: 0;
+  background: #f8f8f8;
+  border-color: #c5bdad;
+  box-shadow: 0 1px 0 #fff inset, 0 2px 1px #453e2826, 0 5px 9px #332b241c;
+}
+.playing-card::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid #76695536;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.playing-card > svg.traditional-face {
+  position: absolute;
+  inset: 17% 3% 3%;
+  width: 94%;
+  height: 80%;
+  fill: initial;
+  stroke: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+.traditional-index {
+  position: absolute;
+  top: 4%;
+  left: 7%;
+  right: 7%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 1;
+  pointer-events: none;
+}
+.traditional-rank {
+  color: #292821;
+  font: 750 17px/1 "Newsreader Variable", Georgia, serif;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.playing-card .traditional-index svg { width: 12px; height: 12px; stroke-width: 2; }
+.reverse-index { inset: auto 6% 4% auto; transform: rotate(180deg); }
+.reverse-index .traditional-rank { font-size: 10px; background: #f8f8f8; padding: 1px; }
+.playing-card.compact .traditional-rank { font-size: 13px; }
+.playing-card.compact .reverse-index .traditional-rank { font-size: 8px; }
+.playing-card.compact .traditional-index svg { width: 9px; height: 9px; }
+.hero-hand .traditional-rank { font-size: 26px; }
+.hero-hand .traditional-index svg { width: 18px; height: 18px; }
+.hero-hand .reverse-index .traditional-rank { font-size: 15px; }
+footer a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-size: .75rem; text-underline-offset: 3px; }
+@media (max-width: 600px) {
+  .full-hand .traditional-rank { font-size: 15px; }
+  .full-hand .reverse-index .traditional-rank { font-size: 9px; }
+  .full-hand .traditional-index svg { width: 10px; height: 10px; }
+  .hero-hand .traditional-rank { font-size: 22px; }
+}
+@media (forced-colors: active) {
+  .playing-card .traditional-face { forced-color-adjust: none; }
+  .playing-card.selected { outline: 3px solid Highlight; }
+}

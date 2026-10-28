@@ -1,0 +1,51 @@
+:root {
+  --trump-blue: #125bbb;
+  --trump-ink: #083e80;
+  --trump-paper: #eaf3ff;
+}
+
+.contract-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 12px;
+  border: 1px solid #cac1b3;
+  border-radius: 9px;
+  background: #f6f0e7;
+  color: #532a36;
+}
+.contract-badge.has-trump { background: var(--trump-paper); border: 2px solid var(--trump-blue); color: var(--trump-ink); }
+.contract-badge > svg { width: 28px; height: 28px; flex-shrink: 0; }
+.contract-badge > span { display: grid; gap: 2px; }
+.contract-badge small { font-size: 9px; font-weight: 800; letter-spacing: .1em; line-height: 1.2; }
+.contract-badge strong { font-size: 17px; line-height: 1.1; }
+.contract-badge > b { background: transparent; color: inherit; border-left: 1px solid currentColor; border-radius: 0; padding-left: 10px; font-size: 17px; }
+.round-heading, .lab-contract { position: sticky; top: 0; z-index: 25; background: #f3eee5; padding: 6px 0; }
+.lab-contract { margin-bottom: 14px; }
+.sheet-header { position: sticky; top: 0; z-index: 5; background: #f8f3e8; }
+.sheet-header .sheet-heading { position: static; }
+.sheet-contract { padding: 8px 18px; border-bottom: 1px solid #dcd2be; }
+.table-sheet .analysis-panel > .contract-badge { display: none; }
+.analysis-panel > .contract-badge { margin-bottom: 18px; }
+.playing-card.is-trump { border: 2px solid var(--trump-blue); background-color: #f4f8ff; }
+.playing-card.is-trump .traditional-index:not(.reverse-index) { color: var(--trump-ink); }
+.trump-letter { display: inline-grid; place-items: center; min-width: 15px; height: 16px; padding: 0 2px; border-radius: 3px; background: var(--trump-blue); color: white; font: 800 10px/1 sans-serif; }
+.playing-card.compact .trump-letter { min-width: 12px; height: 13px; font-size: 9px; }
+.playing-card.is-trump.unavailable { opacity: .64; filter: none; }
+.hand-slot.trump-card::after { display: none; }
+.playing-card.is-trump.selected { outline: 3px solid #8d4e00; outline-offset: 2px; }
+.playing-card.is-trump:focus-visible { outline: 3px solid #171717; outline-offset: 3px; }
+.rules-reference { margin: 28px 0; padding: 24px; border: 1px solid var(--line); background: #fbf7f0; }
+.rules-reference h2 { margin: 0 0 12px; }
+.rules-reference li { margin: 12px 0; line-height: 1.6; }
+.rules-reference a { color: #742639; text-decoration: underline; }
+@media (max-width: 540px) {
+  .round-heading > span:first-child { font-size: 11px; flex-wrap: wrap; }
+  .contract-badge { gap: 7px; padding: 5px 9px; }
+  .contract-badge strong { font-size: 16px; }
+  .contract-badge > svg { width: 24px; height: 24px; }
+  .rules-reference { padding: 18px; }
+  .rules-reference ol { padding-left: 20px; }
+}

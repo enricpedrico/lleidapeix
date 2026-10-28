@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="128" fill="#591c27"/>
+  <circle cx="256" cy="256" r="194" fill="none" stroke="#d7a72d" stroke-width="24"/>
+  <path d="M126 184c66-75 194-75 260 0-21 95-65 162-130 204-65-42-109-109-130-204Z" fill="#f7f0e5"/>
+  <path d="M170 205h172M185 310h142" stroke="#d7a72d" stroke-width="15"/>
+  <text x="256" y="286" text-anchor="middle" font-family="serif" font-size="116" font-weight="800" fill="#591c27">LP</text>
+</svg>
+

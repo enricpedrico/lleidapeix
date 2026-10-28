@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="18" fill="#591c27"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#d7a72d" stroke-width="3"/>
+  <path d="M16 23c8-9 24-9 32 0-3 12-8 20-16 25-8-5-13-13-16-25Z" fill="#f7f0e5"/>
+  <text x="32" y="37" text-anchor="middle" font-family="serif" font-size="18" font-weight="700" fill="#591c27">LP</text>
+</svg>
+

@@ -1,0 +1,4 @@
+# Frontend-only releases preserve the already tested engine binary.
+ARG BACKEND_IMAGE=lleidapeix:local
+FROM ${BACKEND_IMAGE}
+COPY web-dist /app/web-dist

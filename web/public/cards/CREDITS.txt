@@ -1,0 +1,14 @@
+Baralla espanyola de LleidaPeix
+
+Artwork: Basquetteur and Germarquezm. The source also credits the Wikimedia
+graphic labs for heraldic elements and GnuBond for the Aisleriot horse.
+Source: https://commons.wikimedia.org/wiki/File:Baraja_espa%C3%B1ola_completa.png
+Source date: 18 May 2014.
+License: Creative Commons Attribution-ShareAlike 3.0 Unported
+https://creativecommons.org/licenses/by-sa/3.0/
+
+baralla-espanyola-v1.png is an unmodified copy of the source artwork.
+LleidaPeix's card presentation adapts it using SVG viewports, replacement
+indices and a responsive frame. These visual adaptations are also licensed
+under CC BY-SA 3.0. The card artwork is hosted locally: no third-party requests
+are made while playing. Attribution does not imply endorsement.

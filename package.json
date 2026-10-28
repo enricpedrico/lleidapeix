@@ -1,0 +1,40 @@
+{
+  "name": "lleidapeix-web",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "test:api": "node tests/api-smoke.mjs",
+    "test:match": "node tests/match-smoke.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "test:browsers": "node tests/cross-browser.mjs",
+    "test:table": "node tests/table-flow.mjs",
+    "test:cards": "node tests/traditional-deck.mjs",
+    "test:trump": "node tests/trump-rules.mjs",
+    "test:a11y": "node tests/accessibility.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.2.8",
+    "@fontsource-variable/newsreader": "^5.2.8",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "playwright": "^1.62.0",
+    "playwright-core": "^1.62.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
+  }
+}

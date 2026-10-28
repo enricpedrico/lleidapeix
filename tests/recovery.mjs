@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { chromium } from "playwright";
+
+const base = process.env.BASE_URL || "http://127.0.0.1:18086";
+const request = async (path, body) => {
+  const response = await fetch(base + path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  assert.ok(response.ok, await response.clone().text());
+  return response.json();
+};
+const count = (game) => game.completedTricks.length * 4 + game.currentTrick.length;
+const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome" });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce", serviceWorkers: "block" });
+const page = await context.newPage();
+const errors = [];
+page.on("pageerror", (error) => errors.push(error.message));
+let game = await request("/api/games", { mode: "match", difficulty: "easy", seed: 20260903 });
+game = await request(`/api/games/${game.id}/contract`, { version: game.version, idempotencyKey: crypto.randomUUID(), contract: { kind: "trump", suit: "oros" }, delegate: false });
+while (game.phase === "doubling") game = await request(`/api/games/${game.id}/doubling`, { version: game.version, idempotencyKey: crypto.randomUUID(), raise: false });
+
+await page.route("**/advance", (route) => route.abort("internetdisconnected"));
+await page.goto(`${base}/partida/${game.id}`);
+await page.locator(".table-pause").waitFor();
+await page.getByText(/No hi ha connexió amb la taula/).waitFor();
+assert.equal(count(await request(`/api/games/${game.id}`)), 0);
+await page.unroute("**/advance");
+await page.locator(".table-pause").getByRole("button", { name: /Reprèn la partida/ }).click();
+await page.locator(".full-hand .playable").first().waitFor();
+assert.equal(count(await request(`/api/games/${game.id}`)), 3);
+assert.equal(await page.locator(".card-flight").first().evaluate((node) => getComputedStyle(node).animationName), "none");
+
+await page.route("**/play", (route) => route.abort("internetdisconnected"));
+await page.locator(".full-hand .playable").first().click();
+await page.getByRole("button", { name: "Confirma la carta" }).click();
+await page.getByText(/No hi ha connexió amb la taula/).waitFor();
+assert.equal(count(await request(`/api/games/${game.id}`)), 3);
+assert.equal(await page.locator(".full-hand .selected").count(), 1);
+await page.unroute("**/play");
+await page.getByRole("button", { name: "Confirma la carta" }).click();
+await page.waitForFunction(() => document.querySelector(".game-layout")?.getAttribute("data-scene") === "result");
+await page.getByRole("button", { name: "Pausa la partida" }).click();
+await page.goto(base);
+game = await request(`/api/games/${game.id}`);
+while (game.phase === "playing") {
+  const human = game.currentPlayer === 0;
+  game = await request(`/api/games/${game.id}/${human ? "play" : "advance"}`, { version: game.version, idempotencyKey: crypto.randomUUID(), ...(human ? { cardId: game.legalCards[0] } : {}) });
+}
+assert.equal(game.phase, "handOver");
+await page.goto(`${base}/partida/${game.id}`);
+await page.getByRole("button", { name: "Reparteix la mà següent" }).click();
+await page.getByRole("heading", { name: "Vols dir Contro?" }).waitFor();
+assert.equal(await page.locator(".bidding-hand .playing-card").count(), 12);
+const next = await request(`/api/games/${game.id}`);
+assert.equal(next.handNumber, 2);
+assert.equal(next.dealer, 1);
+assert.equal(next.completedTricks.length, 0);
+assert.deepEqual(next.matchScore, game.matchScore);
+assert.deepEqual(errors, []);
+await context.close();
+const offlineContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const offlinePage = await offlineContext.newPage();
+await offlinePage.goto(base, { waitUntil: "networkidle" });
+await offlinePage.evaluate(() => navigator.serviceWorker.ready);
+await offlinePage.reload({ waitUntil: "networkidle" });
+await offlineContext.setOffline(true);
+await offlinePage.reload();
+await offlinePage.getByRole("heading", { name: /La botifarra/ }).waitFor();
+await offlinePage.getByRole("button", { name: /Reparteix i mira la mà/ }).click();
+await offlinePage.locator("#nova-partida").getByText(/No hi ha connexió amb la taula/).waitFor();
+await offlineContext.setOffline(false);
+await offlinePage.getByRole("button", { name: /Reparteix i mira la mà/ }).click();
+await offlinePage.getByRole("heading", { name: "Quin trumfo tries?" }).waitFor();
+await browser.close();
+console.log(JSON.stringify({ status: "ok", checks: ["network pause", "automatic recovery", "selected card retained", "retry without duplicates", "reduced motion", "next-hand button", "dealer rotation", "score retained", "offline shell", "offline warning", "online recovery"] }));
